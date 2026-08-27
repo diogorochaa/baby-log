@@ -1,15 +1,8 @@
-import fastify from "fastify";
+import { buildApp } from './app/app.js'
 
-const server = fastify();
+const app = await buildApp()
 
-server.get("/", (req, res) => {
-    res.send("Hello World");
-});
-
-server.listen({ port: 3000 }, (err, address) => {
-    if (err) {
-        console.error(err);
-        process.exit(1);
-    }
-    console.log(`Server is running on ${address}`);
-});
+await app.listen({
+    port: Number(process.env.PORT ?? 4000),
+    host: process.env.HOST ?? '0.0.0.0',
+})
