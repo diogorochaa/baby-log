@@ -11,6 +11,7 @@
         ".env*"
       ],
       "outputs": [
+        "dist/**",
         ".next/**",
         "!.next/cache/**",
         "!.next/dev/**"
@@ -21,9 +22,31 @@
         "^lint"
       ]
     },
-    "check-types": {
+    "lint:fix": {
+      "cache": false,
       "dependsOn": [
-        "^check-types"
+        "^lint:fix"
+      ]
+    },
+    "typecheck": {
+      "dependsOn": [
+        "^typecheck"
+      ]
+    },
+    "test": {
+      "dependsOn": [
+        "^test"
+      ]
+    },
+    "format": {
+      "cache": false,
+      "dependsOn": [
+        "^format"
+      ]
+    },
+    "format:check": {
+      "dependsOn": [
+        "^format:check"
       ]
     },
     "dev": {
