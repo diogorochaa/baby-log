@@ -5,11 +5,19 @@
     "build": "turbo run build",
     "dev": "turbo run dev",
     "lint": "turbo run lint",
-    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
-    "check-types": "turbo run check-types"
+    "lint:fix": "turbo run lint:fix",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "turbo run format",
+    "format:check": "turbo run format:check",
+    "db:generate": "pnpm --filter api db:generate",
+    "db:migrate": "pnpm --filter api db:migrate",
+    "db:migrate:deploy": "pnpm --filter api db:migrate:deploy",
+    "db:migrate:status": "pnpm --filter api db:migrate:status",
+    "db:studio": "pnpm --filter api db:studio"
   },
   "devDependencies": {
-    "prettier": "3.9.6",
+    "oxfmt": "^0.65.0",
     "turbo": "^2.10.12",
     "typescript": "7.0.2"
   },

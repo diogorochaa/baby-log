@@ -1,8 +1,10 @@
 {
   "compilerOptions": {
-    "module": "nodenext",
+    "module": "preserve",
     "target": "esnext",
-    "types": [],
+    "types": [
+      "node"
+    ],
     "sourceMap": true,
     "declaration": true,
     "declarationMap": true,
@@ -14,5 +16,9 @@
     "isolatedModules": true,
     "moduleDetection": "force",
     "skipLibCheck": true,
-  }
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true
+  },
+  "include": ["src"],
+  "exclude": ["**/*.test.ts"]
 }
