@@ -3,14 +3,6 @@ name: Sync Project Issues
 on:
   workflow_dispatch:
     inputs:
-      project_number:
-        description: Numero do GitHub Project existente
-        required: true
-        type: string
-      project_owner:
-        description: Owner do projeto (usuario ou org). Padrao = owner do repo
-        required: false
-        type: string
       project_file:
         description: Arquivo especifico em .github/projects (ex. epic-03.yml). Vazio = todos
         required: false
@@ -37,8 +29,8 @@ jobs:
 
     env:
       GH_TOKEN: ${{ secrets.PROJECT_SYNC_TOKEN || github.token }}
-      PROJECT_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.project_number || vars.PROJECT_NUMBER }}
-      PROJECT_OWNER: ${{ github.event_name == 'workflow_dispatch' && inputs.project_owner || vars.PROJECT_OWNER || github.repository_owner }}
+      PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+      PROJECT_OWNER: ${{ vars.PROJECT_OWNER || github.repository_owner }}
       PROJECT_FILE: ${{ github.event_name == 'workflow_dispatch' && inputs.project_file || '' }}
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
 
@@ -50,7 +42,7 @@ jobs:
         run: |
           if [ -z "$PROJECT_NUMBER" ]; then
             echo "PROJECT_NUMBER nao definido."
-            echo "Use workflow_dispatch informando project_number ou configure a repository variable PROJECT_NUMBER."
+            echo "Configure a repository variable PROJECT_NUMBER."
             exit 1
           fi
 
