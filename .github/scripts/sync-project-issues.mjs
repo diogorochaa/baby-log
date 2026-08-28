@@ -5,10 +5,84 @@ import { parse } from 'yaml'
 
 const PROJECTS_DIR = join(process.cwd(), '.github/projects')
 const REPO = process.env.GITHUB_REPOSITORY
-const PROJECT_NUMBER = process.env.PROJECT_NUMBER
-const PROJECT_OWNER = process.env.PROJECT_OWNER
 const DRY_RUN = ['true', '1'].includes(process.env.DRY_RUN?.toLowerCase())
 const ONLY_FILE = process.env.PROJECT_FILE?.trim()
+
+let projectNumber = ''
+let projectOwner = ''
+
+function parseProjectUrl(url) {
+  const match = url.match(/github\.com\/(?:users|orgs)\/([^/]+)\/projects\/(\d+)/)
+  if (!match) {
+    throw new Error(
+      `PROJECT_URL invalida: ${url}. Use algo como https://github.com/users/OWNER/projects/NUMBER`,
+    )
+  }
+
+  return {
+    owner: match[1],
+    number: match[2],
+  }
+}
+
+function resolveProjectConfig() {
+  const projectUrl = process.env.PROJECT_URL?.trim()
+
+  if (projectUrl) {
+    return parseProjectUrl(projectUrl)
+  }
+
+  const number = process.env.PROJECT_NUMBER?.trim()
+  const owner = process.env.PROJECT_OWNER?.trim()
+
+  if (!number || !owner) {
+    throw new Error(
+      'Configure PROJECT_URL (recomendado), por exemplo: https://github.com/users/diogorochaa/projects/2',
+    )
+  }
+
+  return { number, owner }
+}
+
+function validateProject(number, owner) {
+  if (DRY_RUN) {
+    console.log(`[dry-run] gh project view ${number} --owner ${owner}`)
+    return
+  }
+
+  try {
+    gh(['project', 'view', number, '--owner', owner])
+    return
+  } catch (error) {
+    let availableProjects = ''
+
+    try {
+      const projects = ghJsonFields(
+        ['project', 'list', '--owner', owner, '--limit', '50'],
+        'number,title,url',
+      )
+      availableProjects = projects
+        .map((project) => `  - #${project.number}: ${project.title} (${project.url})`)
+        .join('\n')
+    } catch {
+      availableProjects = '  (nao foi possivel listar projetos; verifique PROJECT_SYNC_TOKEN)'
+    }
+
+    throw new Error(
+      [
+        `Project #${number} nao encontrado para owner "${owner}".`,
+        'Verifique se o project pertence a esse owner (user ou org).',
+        'Prefira configurar PROJECT_URL copiada do navegador.',
+        '',
+        'Projetos disponiveis:',
+        availableProjects || '  (nenhum)',
+        '',
+        'Erro original:',
+        error.stderrText ?? error.message,
+      ].join('\n'),
+    )
+  }
+}
 
 const LABEL_COLORS = {
   feature: '1D76DB',
@@ -84,7 +158,7 @@ function ensureLabels(labels) {
   if (uniqueLabels.length === 0) return
 
   const existing = new Set(
-    ghJsonFields(['label', 'list', '--limit', '20'], 'name').map((label) => label.name),
+    ghJsonFields(['label', 'list', '--limit', '500'], 'name').map((label) => label.name),
   )
 
   for (const label of uniqueLabels) {
@@ -343,13 +417,13 @@ function addIssueToProject(issueUrl) {
     gh([
       'project',
       'item-add',
-      PROJECT_NUMBER,
+      projectNumber,
       '--owner',
-      PROJECT_OWNER,
+      projectOwner,
       '--url',
       issueUrl,
     ])
-    console.log(`Adicionada ao projeto #${PROJECT_NUMBER}: ${issueUrl}`)
+    console.log(`Adicionada ao projeto #${projectNumber}: ${issueUrl}`)
   } catch (error) {
     const message = error.stderrText ?? error.message
     if (/already exists|already in/i.test(message)) {
@@ -423,8 +497,12 @@ function syncEpicFile(sourceFile) {
 
 function main() {
   if (!REPO) throw new Error('GITHUB_REPOSITORY nao definido')
-  if (!PROJECT_NUMBER) throw new Error('PROJECT_NUMBER nao definido')
-  if (!PROJECT_OWNER) throw new Error('PROJECT_OWNER nao definido')
+
+  const project = resolveProjectConfig()
+  projectNumber = project.number
+  projectOwner = project.owner
+
+  validateProject(projectNumber, projectOwner)
 
   const files = loadProjectFiles()
   if (files.length === 0) {
@@ -433,7 +511,7 @@ function main() {
   }
 
   console.log(`Repositorio: ${REPO}`)
-  console.log(`Projeto: ${PROJECT_OWNER}/projects/${PROJECT_NUMBER}`)
+  console.log(`Projeto: ${projectOwner}/projects/${projectNumber}`)
   console.log(`Arquivos: ${files.join(', ')}`)
 
   for (const file of files) {
