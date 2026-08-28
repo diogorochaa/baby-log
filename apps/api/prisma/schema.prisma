@@ -6,3 +6,236 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+// ─── Auth (RF-024, RF-025) ───────────────────────────────────────────────────
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  babies BabyCaregiver[]
+
+  @@map("users")
+}
+
+enum CaregiverRole {
+  OWNER
+  CAREGIVER
+
+  @@map("caregiver_role")
+}
+
+model BabyCaregiver {
+  id        String        @id @default(uuid())
+  babyId    String        @map("baby_id")
+  userId    String        @map("user_id")
+  role      CaregiverRole @default(CAREGIVER)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  baby Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([babyId, userId])
+  @@index([userId])
+  @@map("baby_caregivers")
+}
+
+// ─── Babies (RF-001, RF-002) ─────────────────────────────────────────────────
+
+enum Sex {
+  MALE
+  FEMALE
+  OTHER
+  UNKNOWN
+
+  @@map("sex")
+}
+
+model Baby {
+  id              String    @id @default(uuid())
+  name            String
+  birthDate       DateTime  @map("birth_date") @db.Date
+  birthTime       String?   @map("birth_time")
+  sex             Sex       @default(UNKNOWN)
+  birthWeight     Decimal?  @map("birth_weight") @db.Decimal(6, 3)
+  birthWeightUnit String    @default("kg") @map("birth_weight_unit")
+  birthHeight     Decimal?  @map("birth_height") @db.Decimal(6, 2)
+  birthHeightUnit String    @default("cm") @map("birth_height_unit")
+  photoUrl        String?   @map("photo_url")
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  caregivers    BabyCaregiver[]
+  feedingLogs   FeedingRecord[]
+  diaperLogs    DiaperRecord[]
+  sleepLogs     SleepRecord[]
+  weightLogs    WeightRecord[]
+  heightLogs    HeightRecord[]
+  diaryEntries  DiaryEntry[]
+  milestoneLogs MilestoneEvent[]
+
+  @@map("babies")
+}
+
+// ─── Feeding (RF-005, RF-006, RF-007) ────────────────────────────────────────
+
+enum FeedingType {
+  BREASTFEEDING
+  BOTTLE
+  FORMULA
+  STORED_BREAST_MILK
+  OTHER
+
+  @@map("feeding_type")
+}
+
+enum BreastSide {
+  LEFT
+  RIGHT
+  BOTH
+
+  @@map("breast_side")
+}
+
+model FeedingRecord {
+  id              String       @id @default(uuid())
+  babyId          String       @map("baby_id")
+  occurredAt      DateTime     @map("occurred_at")
+  startedAt       DateTime?    @map("started_at")
+  endedAt         DateTime?    @map("ended_at")
+  durationMinutes Int?         @map("duration_minutes")
+  type            FeedingType
+  breastSide      BreastSide?  @map("breast_side")
+  quantity        Decimal?     @db.Decimal(8, 2)
+  quantityUnit    String?      @map("quantity_unit")
+  notes           String?
+  createdAt       DateTime     @default(now()) @map("created_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+
+  baby Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, occurredAt(sort: Desc)])
+  @@map("feeding_records")
+}
+
+// ─── Diapers (RF-008, RF-009) ────────────────────────────────────────────────
+
+enum DiaperType {
+  PEE
+  POOP
+  BOTH
+
+  @@map("diaper_type")
+}
+
+model DiaperRecord {
+  id         String     @id @default(uuid())
+  babyId     String     @map("baby_id")
+  occurredAt DateTime   @map("occurred_at")
+  type       DiaperType
+  notes      String?
+  createdAt  DateTime   @default(now()) @map("created_at")
+  updatedAt  DateTime   @updatedAt @map("updated_at")
+
+  baby Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, occurredAt(sort: Desc)])
+  @@map("diaper_records")
+}
+
+// ─── Sleep (RF-010, RF-011) ──────────────────────────────────────────────────
+
+model SleepRecord {
+  id              String    @id @default(uuid())
+  babyId          String    @map("baby_id")
+  occurredAt      DateTime  @map("occurred_at")
+  startedAt       DateTime  @map("started_at")
+  endedAt         DateTime? @map("ended_at")
+  durationMinutes Int?      @map("duration_minutes")
+  location        String?
+  notes           String?
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  baby Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, occurredAt(sort: Desc)])
+  @@map("sleep_records")
+}
+
+// ─── Growth (RF-012, RF-013, RF-014) ─────────────────────────────────────────
+
+model WeightRecord {
+  id         String   @id @default(uuid())
+  babyId     String   @map("baby_id")
+  occurredAt DateTime @map("occurred_at")
+  weight     Decimal  @db.Decimal(6, 3)
+  unit       String   @default("kg")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  baby Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, occurredAt(sort: Desc)])
+  @@map("weight_records")
+}
+
+model HeightRecord {
+  id         String   @id @default(uuid())
+  babyId     String   @map("baby_id")
+  occurredAt DateTime @map("occurred_at")
+  height     Decimal  @db.Decimal(6, 2)
+  unit       String   @default("cm")
+  notes      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  baby Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, occurredAt(sort: Desc)])
+  @@map("height_records")
+}
+
+// ─── Diary (RF-003, RF-017) ──────────────────────────────────────────────────
+
+model DiaryEntry {
+  id          String   @id @default(uuid())
+  babyId      String   @map("baby_id")
+  occurredAt  DateTime @map("occurred_at")
+  title       String
+  description String?
+  category    String?
+  photoUrl    String?  @map("photo_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  baby Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, occurredAt(sort: Desc)])
+  @@map("diary_entries")
+}
+
+// ─── Milestones (RF-015) ─────────────────────────────────────────────────────
+
+model MilestoneEvent {
+  id          String   @id @default(uuid())
+  babyId      String   @map("baby_id")
+  occurredAt  DateTime @map("occurred_at")
+  title       String
+  description String?
+  category    String?
+  photoUrl    String?  @map("photo_url")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  baby Baby @relation(fields: [babyId], references: [id], onDelete: Cascade)
+
+  @@index([babyId, occurredAt(sort: Desc)])
+  @@map("milestone_events")
+}
