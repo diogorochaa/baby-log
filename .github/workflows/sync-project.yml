@@ -30,6 +30,7 @@ jobs:
       GH_TOKEN: ${{ secrets.PROJECT_SYNC_TOKEN }}
       PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
       PROJECT_OWNER: ${{ vars.PROJECT_OWNER || github.repository_owner }}
+      PROJECT_OWNER_TYPE: ${{ vars.PROJECT_OWNER_TYPE }}
       PROJECT_FILE: ${{ github.event_name == 'workflow_dispatch' && inputs.project_file || '' }}
       DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
 
@@ -47,22 +48,11 @@ jobs:
 
           if [ -z "$GH_TOKEN" ]; then
             echo "PROJECT_SYNC_TOKEN nao definido."
-            echo "O GITHUB_TOKEN da action NAO acessa Projects v2 de usuario."
-            echo "Crie um PAT classic da conta diogorochaa com scopes repo + project"
-            echo "e salve como repository secret PROJECT_SYNC_TOKEN."
+            echo "Configure o secret PROJECT_SYNC_TOKEN com PAT classic (scopes repo + project)."
             exit 1
           fi
 
-          echo "Validando acesso ao project ${PROJECT_OWNER}/projects/${PROJECT_NUMBER}..."
-          if ! gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json >/dev/null 2>&1; then
-            echo "Nao foi possivel acessar o project ${PROJECT_OWNER}/projects/${PROJECT_NUMBER}."
-            echo "Confira PROJECT_NUMBER e PROJECT_OWNER."
-            echo "Se estiverem corretos, o PAT precisa do scope project da conta ${PROJECT_OWNER}."
-            gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" || true
-            exit 1
-          fi
-
-          echo "Project encontrado."
+          echo "Validacao do project ocorre no script de sync (resolve user/org e usa @me quando aplicavel)."
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

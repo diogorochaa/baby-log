@@ -7,8 +7,12 @@ const PROJECTS_DIR = join(process.cwd(), '.github/projects')
 const REPO = process.env.GITHUB_REPOSITORY
 const PROJECT_NUMBER = process.env.PROJECT_NUMBER
 const PROJECT_OWNER = process.env.PROJECT_OWNER
+const PROJECT_OWNER_TYPE = process.env.PROJECT_OWNER_TYPE?.trim().toLowerCase()
 const DRY_RUN = ['true', '1'].includes(process.env.DRY_RUN?.toLowerCase())
 const ONLY_FILE = process.env.PROJECT_FILE?.trim()
+
+let cachedProjectOwnerFlag = null
+let cachedOwnerKind = null
 
 const LABEL_COLORS = {
   feature: '1D76DB',
@@ -47,6 +51,138 @@ function ghJsonFields(args, fields) {
   }).trim()
 
   return JSON.parse(output || '[]')
+}
+
+function ghApiGraphql(query, variables = {}) {
+  if (DRY_RUN) {
+    console.log(`[dry-run] gh api graphql ${query}`)
+    if (query.includes('viewer')) {
+      return { data: { viewer: { login: PROJECT_OWNER || 'dry-run-user' } } }
+    }
+
+    return {
+      data: {
+        user: PROJECT_OWNER_TYPE === 'org' ? null : { id: 'USER_ID' },
+        organization: PROJECT_OWNER_TYPE === 'org' ? { id: 'ORG_ID' } : null,
+      },
+    }
+  }
+
+  const args = ['api', 'graphql', '-f', `query=${query}`]
+  for (const [key, value] of Object.entries(variables)) {
+    args.push('-f', `${key}=${value}`)
+  }
+
+  const parsed = JSON.parse(
+    execFileSync('gh', args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim(),
+  )
+
+  if (parsed.errors?.length) {
+    throw new Error(parsed.errors.map((entry) => entry.message).join('; '))
+  }
+
+  return parsed
+}
+
+function getViewerLogin() {
+  return ghApiGraphql('query{viewer{login}}').data.viewer.login
+}
+
+function lookupOwner(login) {
+  const response = ghApiGraphql(
+    'query($login:String!){user(login:$login){id}organization(login:$login){id}}',
+    { login },
+  )
+
+  return {
+    user: response.data.user,
+    organization: response.data.organization,
+  }
+}
+
+function resolveProjectOwnerFlag() {
+  if (cachedProjectOwnerFlag) {
+    return cachedProjectOwnerFlag
+  }
+
+  if (PROJECT_OWNER_TYPE === 'user') {
+    cachedOwnerKind = 'user'
+    cachedProjectOwnerFlag = '@me'
+    return cachedProjectOwnerFlag
+  }
+
+  if (PROJECT_OWNER_TYPE === 'org') {
+    if (!PROJECT_OWNER) {
+      throw new Error('PROJECT_OWNER obrigatorio quando PROJECT_OWNER_TYPE=org')
+    }
+
+    cachedOwnerKind = 'organization'
+    cachedProjectOwnerFlag = PROJECT_OWNER
+    return cachedProjectOwnerFlag
+  }
+
+  const viewerLogin = getViewerLogin()
+
+  if (!PROJECT_OWNER || PROJECT_OWNER === viewerLogin) {
+    cachedOwnerKind = 'user'
+    cachedProjectOwnerFlag = '@me'
+    return cachedProjectOwnerFlag
+  }
+
+  const { user, organization } = lookupOwner(PROJECT_OWNER)
+
+  if (user?.id) {
+    cachedOwnerKind = 'user'
+    cachedProjectOwnerFlag = viewerLogin === PROJECT_OWNER ? '@me' : PROJECT_OWNER
+    return cachedProjectOwnerFlag
+  }
+
+  if (organization?.id) {
+    cachedOwnerKind = 'organization'
+    cachedProjectOwnerFlag = PROJECT_OWNER
+    return cachedProjectOwnerFlag
+  }
+
+  throw new Error(
+    `Owner "${PROJECT_OWNER}" nao encontrado como user nem organization.`,
+  )
+}
+
+function describeProjectTarget() {
+  const ownerFlag = resolveProjectOwnerFlag()
+  const ownerLabel =
+    ownerFlag === '@me' ? `${PROJECT_OWNER || 'viewer'} (user, @me)` : PROJECT_OWNER
+
+  return `${ownerLabel}/projects/${PROJECT_NUMBER} [${cachedOwnerKind}]`
+}
+
+function validateProjectAccess() {
+  const ownerFlag = resolveProjectOwnerFlag()
+  console.log(`Validando acesso ao project ${describeProjectTarget()}...`)
+
+  try {
+    gh(['project', 'view', PROJECT_NUMBER, '--owner', ownerFlag, '--format', 'json'])
+    console.log('Project encontrado.')
+  } catch (error) {
+    const message = error.stderrText ?? error.message
+
+    if (/unknown owner type/i.test(message)) {
+      throw new Error(
+        [
+          `Falha ao resolver owner "${PROJECT_OWNER}" via gh CLI.`,
+          'Para project pessoal, use PROJECT_OWNER=diogorochaa ou PROJECT_OWNER_TYPE=user.',
+          'Para project de org, use PROJECT_OWNER_TYPE=org e PROJECT_OWNER=<org>.',
+          'Projects de org podem exigir scope read:org no PAT.',
+        ].join(' '),
+        { cause: error },
+      )
+    }
+
+    throw error
+  }
 }
 
 function sourceId(sourceFile) {
@@ -339,13 +475,15 @@ function labelsForIssue(sourceId, kind, key) {
 }
 
 function addIssueToProject(issueUrl) {
+  const ownerFlag = resolveProjectOwnerFlag()
+
   try {
     gh([
       'project',
       'item-add',
       PROJECT_NUMBER,
       '--owner',
-      PROJECT_OWNER,
+      ownerFlag,
       '--url',
       issueUrl,
     ])
@@ -357,13 +495,9 @@ function addIssueToProject(issueUrl) {
       return
     }
 
-    if (/Could not resolve to a ProjectV2/i.test(message)) {
+    if (/Could not resolve to a ProjectV2|unknown owner type/i.test(message)) {
       throw new Error(
-        [
-          `Project ${PROJECT_OWNER}/projects/${PROJECT_NUMBER} inacessivel.`,
-          'O GITHUB_TOKEN da action nao acessa Projects v2 de usuario.',
-          'Configure o secret PROJECT_SYNC_TOKEN com PAT classic (scopes repo + project).',
-        ].join(' '),
+        `Project ${describeProjectTarget()} inacessivel. ${message}`,
         { cause: error },
       )
     }
@@ -435,7 +569,8 @@ function syncEpicFile(sourceFile) {
 function main() {
   if (!REPO) throw new Error('GITHUB_REPOSITORY nao definido')
   if (!PROJECT_NUMBER) throw new Error('PROJECT_NUMBER nao definido')
-  if (!PROJECT_OWNER) throw new Error('PROJECT_OWNER nao definido')
+
+  validateProjectAccess()
 
   const files = loadProjectFiles()
   if (files.length === 0) {
@@ -444,7 +579,7 @@ function main() {
   }
 
   console.log(`Repositorio: ${REPO}`)
-  console.log(`Projeto: ${PROJECT_OWNER}/projects/${PROJECT_NUMBER}`)
+  console.log(`Projeto: ${describeProjectTarget()}`)
   console.log(`Arquivos: ${files.join(', ')}`)
 
   for (const file of files) {
