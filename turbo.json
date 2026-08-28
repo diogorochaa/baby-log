@@ -15,6 +15,9 @@
         ".next/**",
         "!.next/cache/**",
         "!.next/dev/**"
+      ],
+      "env": [
+        "DATABASE_URL"
       ]
     },
     "lint": {
@@ -31,6 +34,9 @@
     "typecheck": {
       "dependsOn": [
         "^typecheck"
+      ],
+      "env": [
+        "DATABASE_URL"
       ]
     },
     "test": {
