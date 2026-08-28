@@ -357,6 +357,17 @@ function addIssueToProject(issueUrl) {
       return
     }
 
+    if (/Could not resolve to a ProjectV2/i.test(message)) {
+      throw new Error(
+        [
+          `Project ${PROJECT_OWNER}/projects/${PROJECT_NUMBER} inacessivel.`,
+          'O GITHUB_TOKEN da action nao acessa Projects v2 de usuario.',
+          'Configure o secret PROJECT_SYNC_TOKEN com PAT classic (scopes repo + project).',
+        ].join(' '),
+        { cause: error },
+      )
+    }
+
     throw error
   }
 }

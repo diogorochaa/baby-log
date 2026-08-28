@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GH_TOKEN: ${{ secrets.PROJECT_SYNC_TOKEN || github.token }}
+      GH_TOKEN: ${{ secrets.PROJECT_SYNC_TOKEN }}
       PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
       PROJECT_OWNER: ${{ vars.PROJECT_OWNER || github.repository_owner }}
       PROJECT_FILE: ${{ github.event_name == 'workflow_dispatch' && inputs.project_file || '' }}
@@ -44,6 +44,25 @@ jobs:
             echo "Configure a repository variable PROJECT_NUMBER (ex.: 2)."
             exit 1
           fi
+
+          if [ -z "$GH_TOKEN" ]; then
+            echo "PROJECT_SYNC_TOKEN nao definido."
+            echo "O GITHUB_TOKEN da action NAO acessa Projects v2 de usuario."
+            echo "Crie um PAT classic da conta diogorochaa com scopes repo + project"
+            echo "e salve como repository secret PROJECT_SYNC_TOKEN."
+            exit 1
+          fi
+
+          echo "Validando acesso ao project ${PROJECT_OWNER}/projects/${PROJECT_NUMBER}..."
+          if ! gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" --format json >/dev/null 2>&1; then
+            echo "Nao foi possivel acessar o project ${PROJECT_OWNER}/projects/${PROJECT_NUMBER}."
+            echo "Confira PROJECT_NUMBER e PROJECT_OWNER."
+            echo "Se estiverem corretos, o PAT precisa do scope project da conta ${PROJECT_OWNER}."
+            gh project view "$PROJECT_NUMBER" --owner "$PROJECT_OWNER" || true
+            exit 1
+          fi
+
+          echo "Project encontrado."
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
