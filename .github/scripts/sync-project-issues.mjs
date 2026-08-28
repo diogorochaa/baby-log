@@ -222,21 +222,37 @@ function ensureIssueHasLabels(issueNumber, labels) {
   gh(['issue', 'edit', String(issueNumber), '--add-label', labels.join(',')])
 }
 
+function issueFromCreateOutput(output, title) {
+  const url = output
+    .split('\n')
+    .map((line) => line.trim())
+    .find((line) => /\/issues\/\d+$/.test(line))
+
+  if (!url) {
+    throw new Error(`Nao foi possivel obter URL da issue criada: ${output}`)
+  }
+
+  const number = Number(url.match(/\/issues\/(\d+)$/)?.[1])
+  if (!number) {
+    throw new Error(`Nao foi possivel obter numero da issue: ${url}`)
+  }
+
+  return { number, url, title }
+}
+
 function createIssue({ title, labels, body, parentNumber }) {
   const args = ['issue', 'create', '--title', title, '--body', body]
 
-  if (labels.length > 0) {
-    args.push('--label', labels.join(','))
+  for (const label of labels) {
+    args.push('--label', label)
   }
 
   if (parentNumber) {
     args.push('--parent', String(parentNumber))
   }
 
-  args.push('--json', 'number,url,title')
-
   if (DRY_RUN) {
-    gh(args.slice(0, -2))
+    gh(args)
     return {
       number: parentNumber ? 1000 : 999,
       url: `https://github.com/${REPO}/issues/${parentNumber ? 1000 : 999}`,
@@ -244,7 +260,7 @@ function createIssue({ title, labels, body, parentNumber }) {
     }
   }
 
-  return JSON.parse(gh(args))
+  return issueFromCreateOutput(gh(args), title)
 }
 
 function getOrCreateIssue({
