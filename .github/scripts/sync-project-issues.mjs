@@ -84,7 +84,7 @@ function ensureLabels(labels) {
   if (uniqueLabels.length === 0) return
 
   const existing = new Set(
-    ghJsonFields(['label', 'list'], 'name').map((label) => label.name),
+    ghJsonFields(['label', 'list', '--limit', '20'], 'name').map((label) => label.name),
   )
 
   for (const label of uniqueLabels) {
@@ -94,15 +94,25 @@ function ensureLabels(labels) {
       ? 'BFD4F2'
       : LABEL_COLORS[label] ?? 'BFD4F2'
 
-    gh([
-      'label',
-      'create',
-      label,
-      '--color',
-      color,
-      '--description',
-      'Criada automaticamente pelo sync de projetos',
-    ])
+    try {
+      gh([
+        'label',
+        'create',
+        label,
+        '--color',
+        color,
+        '--description',
+        'Criada automaticamente pelo sync de projetos',
+      ])
+    } catch (error) {
+      const message = error.stderrText ?? error.message
+      if (/already exists/i.test(message)) {
+        console.log(`Label ja existente: ${label}`)
+      } else {
+        throw error
+      }
+    }
+
     existing.add(label)
   }
 }
