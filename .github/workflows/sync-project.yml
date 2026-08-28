@@ -1,0 +1,67 @@
+name: Sync Project Issues
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_number:
+        description: Numero do GitHub Project existente
+        required: true
+        type: string
+      project_owner:
+        description: Owner do projeto (usuario ou org). Padrao = owner do repo
+        required: false
+        type: string
+      project_file:
+        description: Arquivo especifico em .github/projects (ex. epic-03.yml). Vazio = todos
+        required: false
+        type: string
+      dry_run:
+        description: Apenas simular, sem criar issues
+        required: false
+        type: boolean
+        default: false
+  push:
+    branches:
+      - main
+    paths:
+      - .github/projects/**
+
+permissions:
+  contents: read
+  issues: write
+  projects: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    env:
+      GH_TOKEN: ${{ secrets.PROJECT_SYNC_TOKEN || github.token }}
+      PROJECT_NUMBER: ${{ github.event_name == 'workflow_dispatch' && inputs.project_number || vars.PROJECT_NUMBER }}
+      PROJECT_OWNER: ${{ github.event_name == 'workflow_dispatch' && inputs.project_owner || vars.PROJECT_OWNER || github.repository_owner }}
+      PROJECT_FILE: ${{ github.event_name == 'workflow_dispatch' && inputs.project_file || '' }}
+      DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run && 'true' || 'false' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validar configuracao do projeto
+        run: |
+          if [ -z "$PROJECT_NUMBER" ]; then
+            echo "PROJECT_NUMBER nao definido."
+            echo "Use workflow_dispatch informando project_number ou configure a repository variable PROJECT_NUMBER."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Instalar dependencias do script
+        working-directory: .github/scripts
+        run: npm install
+
+      - name: Sincronizar epico e tasks no GitHub Project
+        run: node .github/scripts/sync-project-issues.mjs

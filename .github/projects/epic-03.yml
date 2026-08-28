@@ -1,0 +1,110 @@
+epic:
+  title: "Épico 3 — Registros de Rotina"
+  labels:
+    - feature
+
+tasks:
+  - title: "TASK-019 - Modelagem de BabyLog"
+    labels:
+      - backend
+      - banco
+
+  - title: "TASK-020 - Modelagem de tipos de evento"
+    labels:
+      - backend
+      - banco
+
+  - title: "TASK-021 - Criar registro de alimentação"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-022 - Criar registro de sono"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-023 - Criar registro de fralda"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-024 - Criar registro de banho"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-025 - Criar registro de medicamento"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-026 - Criar registro de observação"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-027 - Listar registros do bebê"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-028 - Editar registro"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-029 - Excluir registro"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-030 - Validação dos registros"
+    labels:
+      - backend
+      - feature
+
+  - title: "TASK-031 - Tela de registros"
+    labels:
+      - frontend
+      - feature
+
+  - title: "TASK-032 - Formulário de alimentação"
+    labels:
+      - frontend
+      - feature
+
+  - title: "TASK-033 - Formulário de sono"
+    labels:
+      - frontend
+      - feature
+
+  - title: "TASK-034 - Formulário de fralda"
+    labels:
+      - frontend
+      - feature
+
+  - title: "TASK-035 - Formulário de banho"
+    labels:
+      - frontend
+      - feature
+
+  - title: "TASK-036 - Formulário de medicamento"
+    labels:
+      - frontend
+      - feature
+
+  - title: "TASK-037 - Formulário de observação"
+    labels:
+      - frontend
+      - feature
+
+  - title: "TASK-038 - Histórico de registros"
+    labels:
+      - frontend
+      - feature
+
+  - title: "TASK-039 - Testes dos registros"
+    labels:
+      - backend
+      - frontend
